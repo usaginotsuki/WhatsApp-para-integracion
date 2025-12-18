@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Demo Chat</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: #0b141a;
+    "
+  >
+    <div
+      style="
+        max-width: 520px;
+        margin: 0 auto;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #111b21;
+      "
+    >
+      <!-- Top bar -->
+      <div
+        style="
+          padding: 12px 14px;
+          background: #202c33;
+          color: #e9edef;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+        "
+      >
+        <div
+          style="
+            width: 38px;
+            height: 38px;
+            border-radius: 999px;
+            background: #2a3942;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+          "
+        >
+          A
+        </div>
+        <div style="display: flex; flex-direction: column; line-height: 1.1;">
+          <div style="font-weight: 700;">Asistente</div>
+          <div id="status" style="font-size: 12px; color: #aebac1;">
+            en línea
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div
+        id="chat"
+        style="
+          flex: 1;
+          overflow: auto;
+          padding: 14px;
+          background: radial-gradient(
+              circle at 20% 10%,
+              rgba(0, 0, 0, 0.12),
+              transparent 35%
+            ),
+            radial-gradient(
+              circle at 80% 30%,
+              rgba(0, 0, 0, 0.1),
+              transparent 40%
+            ),
+            #0b141a;
+        "
+      ></div>
+
+      <!-- Input -->
+      <div
+        style="padding: 10px; background: #202c33; display: flex; gap: 10px;"
+      >
+        <input
+          id="msg"
+          placeholder="Escribe un mensaje"
+          autocomplete="off"
+          style="
+            flex: 1;
+            border: 0;
+            border-radius: 999px;
+            padding: 12px 14px;
+            background: #2a3942;
+            color: #e9edef;
+            outline: none;
+          "
+        />
+        <button
+          id="send"
+          style="
+            border: 0;
+            border-radius: 999px;
+            padding: 0 16px;
+            background: #00a884;
+            color: #062b25;
+            font-weight: 800;
+            cursor: pointer;
+          "
+        >
+          Enviar
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const chatEl = document.getElementById('chat')
+      const inputEl = document.getElementById('msg')
+      const sendBtn = document.getElementById('send')
+      const statusEl = document.getElementById('status')
+
+      const STORAGE_KEY = 'demo_wpp_chat_v1'
+
+      function nowTime() {
+        const d = new Date()
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+
+      function bubble({ from, text, time, meta }) {
+        const isMe = from === 'me'
+        const wrap = document.createElement('div')
+        wrap.style.display = 'flex'
+        wrap.style.justifyContent = isMe ? 'flex-end' : 'flex-start'
+        wrap.style.margin = '6px 0'
+
+        const b = document.createElement('div')
+        b.style.maxWidth = '78%'
+        b.style.padding = '10px 10px 8px'
+        b.style.borderRadius = '14px'
+        b.style.background = isMe ? '#005c4b' : '#202c33'
+        b.style.color = '#e9edef'
+        b.style.boxShadow = '0 1px 0 rgba(0,0,0,.25)'
+        b.style.whiteSpace = 'pre-wrap'
+        b.style.wordBreak = 'break-word'
+
+        const t = document.createElement('div')
+        t.textContent = text
+
+        const foot = document.createElement('div')
+        foot.style.display = 'flex'
+        foot.style.justifyContent = 'flex-end'
+        foot.style.gap = '6px'
+        foot.style.marginTop = '4px'
+        foot.style.fontSize = '11px'
+        foot.style.color = 'rgba(233,237,239,.75)'
+        foot.textContent = time || nowTime()
+
+        if (meta) {
+          const m = document.createElement('div')
+          m.style.fontSize = '12px'
+          m.style.color = '#aebac1'
+          m.style.margin = '8px 0 2px'
+          m.style.textAlign = 'center'
+          m.textContent = meta
+          chatEl.appendChild(m)
+        }
+
+        b.appendChild(t)
+        b.appendChild(foot)
+        wrap.appendChild(b)
+        chatEl.appendChild(wrap)
+        chatEl.scrollTop = chatEl.scrollHeight
+      }
+
+      function load() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+          
+        } catch {
+          return []
+        }
+      }
+
+      function save(messages) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages))
+      }
+
+      function renderAll(messages) {
+        chatEl.innerHTML = ''
+        for (const m of messages) bubble(m)
+      }
+
+      // flujo simple: respuesta automática basada en lo que el usuario escribió
+      function botReply(userText) {
+        const txt = userText.trim().toLowerCase()
+
+        if (txt.includes('si') || txt.includes('ok') || txt.includes('dale')) {
+          return 'Perfecto. ¿Qué dato te falta para completar el ejercicio?'
+        }
+        if (txt.includes('no')) {
+          return 'Entiendo. ¿Qué te impide avanzar: tiempo, información o dudas?'
+        }
+        if (txt.length <= 3) {
+          return 'Te leo. Cuéntame un poco más para poder responderte bien 🙂'
+        }
+        //random number between 1 and 100
+        const rand = Math.floor(Math.random() * 100) + 1
+        //>50 - Te falta mejorar, podrias usar la estrategia de mejorar la comunicacion a través de la claridad
+        //>80 - Buen trabajo, sigue así y considera compartir tus conocimientos con otros
+        //<=50 - Puedes aplicar practicas mejores, por ejemplo podrias tener en cuenta que los rumores no son siempre ciertos
+        if (rand > 80) {
+          return 'Buen trabajo, sigue así y considera compartir tus conocimientos con otros.'
+        } else if (rand > 50) {
+          return 'Te falta mejorar, podrías usar la estrategia de mejorar la comunicación a través de la claridad.'
+        } else {
+          return 'Puedes aplicar prácticas mejores, por ejemplo podrías tener en cuenta que los rumores no son siempre ciertos.'
+        }
+      }
+
+      // Init chat
+      let messages = load()
+      if (!messages.length) {
+        messages = [
+          {
+            from: 'bot',
+            text: 'Hola 👋 Esta es una demo de conversación tipo WhatsApp.',
+            time: nowTime(),
+          },
+          {
+            from: 'bot',
+            text:
+              'Vas a ver 2–3 mensajes y luego debes responder con texto libre.',
+            time: nowTime(),
+          },
+          {
+            from: 'bot',
+            text: '¿Listo? Responde: ¿Qué harías en este caso?',
+            time: nowTime(),
+          },
+          {
+            from: 'bot',
+            text:
+              'Te enteraste que la de recursos humanos se fue a solas con el doctor de gastro?',
+            time: nowTime(),
+          },
+        ]
+        save(messages)
+      }
+      renderAll(messages)
+
+      function setTyping(on) {
+        statusEl.textContent = on ? 'escribiendo…' : 'en línea'
+      }
+
+      function send() {
+        const text = inputEl.value
+        if (!text.trim()) return
+
+        const myMsg = { from: 'me', text: text.trim(), time: nowTime() }
+        messages.push(myMsg)
+        save(messages)
+        bubble(myMsg)
+        inputEl.value = ''
+        inputEl.focus()
+
+        // Simula "escribiendo…" y luego respuesta
+        setTyping(true)
+        const replyText = botReply(myMsg.text)
+
+        setTimeout(() => {
+          const botMsg = { from: 'bot', text: replyText, time: nowTime() }
+          messages.push(botMsg)
+          save(messages)
+          bubble(botMsg)
+          setTyping(false)
+        }, 1200)
+      }
+
+      sendBtn.addEventListener('click', send)
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') send()
+      })
+    </script>
+  </body>
+</html>
